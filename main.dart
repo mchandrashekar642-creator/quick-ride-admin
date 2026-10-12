@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() => runApp(QuickRideAdminApp());
 
@@ -23,122 +25,127 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  double commissionRate = 10.0; 
-  double negativeLimit = 200.0; 
+  double commissionRate = 10.0;
+  double negativeLimit = 200.0;
+  List<Map<String, dynamic>> pendingDrivers = [];
+  bool isLoading = true;
 
-  List<Map<String, dynamic>> pendingDrivers = [
-    {
-      'id': 'DRV101',
-      'name': 'రమేష్ బాబు',
-      'phone': '9876543210',
-      'bikeNumber': 'TS08AB1234',
-      'bikeModel': 'Honda Shine (API Verified)',
-      'dlNumber': 'TS0820210001234',
-      'dlStatus': 'Active / Original',
-      'status': 'Pending'
-    },
-    {
-      'id': 'DRV102',
-      'name': 'శ్రీకాంత్ రెడ్డి',
-      'phone': '9123456789',
-      'bikeNumber': 'TS08XY5678',
-      'bikeModel': 'Hero Splendor Plus (API Verified)',
-      'dlNumber': 'TS0820220005678',
-      'dlStatus': 'Active / Original',
-      'status': 'Pending'
-    },
-  ];
+  final String backendUrl = "https://quick-ride-backend-48gr.onrender.com";
+
+  @override
+  void initState() {
+    super.initState();
+    fetchDrivers();
+  }
+
+  Future<void> fetchDrivers() async {
+    try {
+      final response = await http.get(Uri.parse('$backendUrl/api/drivers'));
+      if (response.statusCode == 200) {
+        List data = json.decode(response.body);
+        setState(() {
+          pendingDrivers = List<Map<String, dynamic>>.from(data);
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('క్విక్ రైడ్ - మాస్టర్ అడ్మిన్ ప్యానెల్'),
+        title: Text('క్విక్ రైడ్ - అడ్మిన్ అప్లైడ్ ప్యానెల్'),
         actions: [
           IconButton(
             icon: Icon(Icons.settings_applications),
             onPressed: () => _showSettingsDialog(context),
-            tooltip: 'సిస్టమ్ లిమిట్స్ మార్చుకోండి',
+            tooltip: 'సిస్టమ్ సెట్టింగ్స్ మార్పులొద్ది.',
           ),
         ],
       ),
       body: Padding(
         padding: EdgeInsets.all(16.0),
-        child: ListView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSummaryCard('మొత్తం రైడర్లు', '142', Colors.blue),
-                _buildSummaryCard('ఈరోజు రైడ్లు', '380', Colors.orange),
-                _buildSummaryCard('యాక్టివ్ లిమిట్', '₹${negativeLimit.toInt()}', Colors.red),
+                _buildSummaryCard('మొత్తం డ్రైవర్స్', '${pendingDrivers.length}', Colors.blue),
+                _buildSummaryCard('కమిషన్ రేట్', '$commissionRate%', Colors.orange),
+                _buildSummaryCard('నెగెటివ్ లిమిట్', '₹$negativeLimit', Colors.red),
               ],
             ),
             SizedBox(height: 20),
             Text(
-              'డ్రైవర్ రిజిస్ట్రేషన్ అప్రూవల్స్ (API వెరిఫైడ్)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+              'డ్రైవర్ రిజిస్ట్రేషన్ అప్వాల్ (API వెర్షన్)',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 10),
-            pendingDrivers.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40.0),
-                      child: Text('ప్రస్తుతం పెండింగ్ డ్రైవర్లు లేవు.', style: TextStyle(color: Colors.grey)),
-                    ),
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    itemCount: pendingDrivers.length,
-                    itemBuilder: (context, index) {
-                      var driver = pendingDrivers[index];
-                      return Card(
-                        elevation: 3,
-                        margin: EdgeInsets.symmetric(vertical: 8),
-                        child: Padding(
-                          padding: EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(driver['name'], style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                  Chip(
-                                    label: Text(driver['dlStatus'], style: TextStyle(color: Colors.white, fontSize: 12)),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                ],
+            Expanded(
+              child: isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : pendingDrivers.isEmpty
+                      ? Center(child: Text('ప్రస్తుతం పెండింగ్ డ్రైవర్స్ లేరు.'))
+                      : ListView.builder(
+                          itemCount: pendingDrivers.length,
+                          itemBuilder: (context, index) {
+                            var driver = pendingDrivers[index];
+                            return Card(
+                              elevation: 3,
+                              margin: EdgeInsets.symmetric(vertical: 8),
+                              child: Padding(
+                                padding: EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(driver['name'] ?? 'నామ్ లేదు', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                        Chip(
+                                          label: Text(driver['status'] ?? 'Pending'),
+                                          backgroundColor: Colors.green[100],
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text('ఫోన్: ${driver['phone']}'),
+                                    Text('బైక్ నంబర్: ${driver['bikeNumber']}'),
+                                    Text('డ్రైవింగ్ లైసెన్స్: ${driver['dlNumber']}'),
+                                    Divider(),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        TextButton.icon(
+                                          onPressed: () => _rejectDriver(index),
+                                          icon: Icon(Icons.close, color: Colors.red),
+                                          label: Text('రిజెక్ట్ చేయి', style: TextStyle(color: Colors.red)),
+                                        ),
+                                        SizedBox(width: 8),
+                                        ElevatedButton.icon(
+                                          onPressed: () => _approveDriver(index),
+                                          icon: Icon(Icons.check),
+                                          label: Text('అప్రూవ్ చేయి'),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
-                              SizedBox(height: 4),
-                              Text('ఫోన్: ${driver['phone']}'),
-                              Text('బైక్ నంబర్: ${driver['bikeNumber']} | మోడల్: ${driver['bikeModel']}'),
-                              Text('డ్రైవింగ్ లైసెన్స్: ${driver['dlNumber']}'),
-                              Divider(),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  TextButton.icon(
-                                    onPressed: () => _rejectDriver(index),
-                                    icon: Icon(Icons.close, color: Colors.red),
-                                    label: Text('తిరస్కరించు', style: TextStyle(color: Colors.red)),
-                                  ),
-                                  SizedBox(width: 8),
-                                  ElevatedButton.icon(
-                                    onPressed: () => _approveDriver(index),
-                                    icon: Icon(Icons.check, color: Colors.white),
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                    label: Text('అప్రూవ్ చేయి', style: TextStyle(color: Colors.white)),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
+            ),
           ],
         ),
       ),
@@ -156,7 +163,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
       child: Column(
         children: [
-          Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
+          Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
           SizedBox(height: 6),
           Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
         ],
@@ -187,21 +194,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('అడ్మిన్ రూల్స్ సెట్టింగ్స్'),
+          title: Text('అడ్మిన్ రూట్స్ సెట్టింగ్స్'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                decoration: InputDecoration(labelText: 'కమీషన్ శాతం (%)'),
+                decoration: InputDecoration(labelText: 'కమిషన్ రేట్ (%)'),
                 keyboardType: TextInputType.number,
                 controller: TextEditingController(text: commissionRate.toString()),
-                onChanged: (val) => commissionRate = double.tryParse(val) ?? 10.0,
+                onChanged: (val) => commissionRate = double.tryParse(val) ?? commissionRate,
               ),
               TextField(
-                decoration: InputDecoration(labelText: 'నెగెటివ్ బ్యాలెన్స్ బ్లాక్ లిమిట్ (₹)'),
+                decoration: InputDecoration(labelText: 'నెగెటివ్ లిమిట్ (₹)'),
                 keyboardType: TextInputType.number,
                 controller: TextEditingController(text: negativeLimit.toString()),
-                onChanged: (val) => negativeLimit = double.tryParse(val) ?? 200.0,
+                onChanged: (val) => negativeLimit = double.tryParse(val) ?? negativeLimit,
               ),
             ],
           ),
